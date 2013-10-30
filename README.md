@@ -22,7 +22,7 @@ Sure!, when you was build it and program the arduino board, then plug it in your
 
 Why eClarin?
 ------------
-Yeah, that's a good question. All of this stuff is eChanter based and I can only thank the author for that, in a little tribute to him and using the word that we use to name this bagpipe part (clarin means chanter), I chose eClarin for this project.
+Yeah, that's a good question. All of this stuff is eChanter based and I can only thank the author for that, in a little tribute to him and using the word that we use to name this bagpipe part (clarin means chanter), I chose eClarin for project name.
 
 Can I help with that?
 ---------------------
