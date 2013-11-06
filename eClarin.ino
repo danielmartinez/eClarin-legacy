@@ -2,8 +2,11 @@
 
 byte actual = 0; // temp var for holding tone to play
 byte anterior;
-//int led = 13;
-//boolean sonando=false;
+byte posanterior;
+byte instrument=109, volume=127;
+boolean bordon=true, bordoneta=true; 
+int led = 13;
+boolean sonando=true;
 
 int msgMidi(int cmd, int note, int vel){
   Serial.write(cmd);
@@ -12,19 +15,30 @@ int msgMidi(int cmd, int note, int vel){
 }
 
 void tocaNota(byte quiero, byte tengo) {
-  //digitalWrite(led,LOW);
-  if (tengo!=quiero) {
-    msgMidi(0x80,tengo,127);
+  if ((tengo!=quiero) && sonando) {
+    msgMidi(0xB0,123,0);
     msgMidi(0x90,quiero,127);
     anterior=quiero;
   }
 }
 
+void pruebaInstrumento(){
+  msgMidi(0xB0,123,0);
+  msgMidi(0xB1,123,0);
+  msgMidi(0xB2,123,0);
+  msgMidi(0xC0,0,instrument);
+  msgMidi(0xC1,0,instrument);
+  msgMidi(0xC2,0,instrument);
+  msgMidi(0x90,0x51,127);
+  if (bordon) msgMidi(0x91,0x30,0x30);
+  if (bordoneta) msgMidi(0x92,0x3C,0x30);
+  anterior=0;
+}
+
 void setup()
 {
-  //pinMode(led,OUTPUT);
+  pinMode(led,OUTPUT);
   Serial.begin(31250);
-  //Serial.begin(9600);
   startPlayback();
 }
 
@@ -39,6 +53,7 @@ void loop ()
       else bitSet(actual,i);
     }
     //sonando = (readCapacitivePin(10) <= TRIGGER_VAL);
+    if (actual!=posanterior)
     switch (actual) {
      case B01111101: ;; //DoA
      case B00000000: tocaNota(0x54,anterior); break; //DoA
@@ -65,8 +80,21 @@ void loop ()
      case B10111111: tocaNota(0x49,anterior); break; //Do#
      case B01111111: tocaNota(0x48,anterior); break; //Do
      case B11111111: tocaNota(0x47,anterior); break; //SiB
-     //default: digitalWrite(led,HIGH);
+     
+     case B10000010: msgMidi(0xC0,0,++instrument); pruebaInstrumento(); break;
+     case B10000100: msgMidi(0xC0,0,--instrument); pruebaInstrumento(); break;
+     case B10001000: if (bordon=!bordon) msgMidi(0x91,0x30,0x40);
+                     else msgMidi(0xB1,123,0);
+                     break;
+     case B10010000: if (bordoneta=!bordoneta) msgMidi(0x92,0x3C,0x40);
+                     else msgMidi(0xB2,123,0); break;
+     case B10100000: if (!(sonando=!sonando)) {stopPlayback();}
+                     else startPlayback();
+                     break;
+     case B10000011: msgMidi(0xB0,0x07,volume+=5); break;
+     case B10000101: msgMidi(0xB0,0x07,volume-=5); break;
     }
+    posanterior=actual;
 }
 
 uint8_t readCapacitivePin(int pinToMeasure) {
@@ -127,10 +155,24 @@ uint8_t readCapacitivePin(int pinToMeasure) {
 
 void startPlayback()
 {
-   msgMidi(0xC0,0,109);
-   msgMidi(0xC1,0,109);
-   msgMidi(0xC2,0,109);
-   msgMidi(0x91,0x30,0x30);
-   msgMidi(0x92,0x3C,0x30);
-   tocaNota(0x48,0);
+  msgMidi(0xB0,123,0);
+  msgMidi(0xB1,123,0);
+  msgMidi(0xB2,123,0);
+  msgMidi(0xC0,0,instrument);
+  msgMidi(0xC1,0,instrument);
+  msgMidi(0xC2,0,instrument);
+  if (bordon) msgMidi(0x91,0x30,0x30);
+  if (bordoneta) msgMidi(0x92,0x3C,0x30);
+  tocaNota(0x48,0);
+  sonando=true;
+  digitalWrite(led,HIGH);
+}
+
+void stopPlayback()
+{
+  msgMidi(0xB0,123,0);
+  msgMidi(0xB1,123,0);
+  msgMidi(0xB2,123,0);
+  sonando=false;
+  digitalWrite(led,LOW);
 }
