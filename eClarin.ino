@@ -1,14 +1,20 @@
 #define TRIGGER_VAL 8 // sensor trigger value (<val is on, >= val is off)
+#define BORDON_TRIGGER_VAL 20
+#define BORDONETA_TRIGGER_VAL 60
+#define CLARIN_TRIGGER_VAL 100
 
 byte currentpos = 0;
-byte previous;
+byte previous=0x48;
 byte previouspos;
 byte instrument=109, volume=127;
-boolean bordon=true, bordoneta=true;
 int led = 13;
+int fsrAnalogPin=0;
+int fsrValue;
+boolean bordon=true, bordoneta=true;
+boolean bordonPlaying=true, bordonetaPlaying=true;
 boolean playing=true;
 
-int msgMidi(int cmd, int note, int vel){
+int msgMidi(int cmd, int note, int vel) {
   Serial.write(cmd);
   Serial.write(note);
   Serial.write(vel);
@@ -22,7 +28,7 @@ void playNote(byte want, byte have) {
   }
 }
 
-void instrumentPreview(){
+void instrumentPreview() {
   msgMidi(0xB0,123,0);
   msgMidi(0xB1,123,0);
   msgMidi(0xB2,123,0);
@@ -35,21 +41,29 @@ void instrumentPreview(){
   previous=0;
 }
 
-void setup()
-{
+void setup() {
   pinMode(led,OUTPUT);
   Serial.begin(31250);
   startPlayback();
 }
 
-void loop ()
-{
+void loop () {
+    fsrValue=analogRead(fsrAnalogPin);
+    if (fsrValue<BORDON_TRIGGER_VAL) {
+      if (bordonPlaying) stopBordon();
+    }
+    else if (!bordonPlaying) startBordon();
+    if (fsrValue<BORDONETA_TRIGGER_VAL) {
+      if (bordonetaPlaying) stopBordoneta();
+    }
+    else if (!bordonetaPlaying) startBordoneta();
+    if (fsrValue<CLARIN_TRIGGER_VAL)  {
+      if (playing) stopClarin();
+    }
+    else if (!playing) startClarin();
     currentpos=0;
-    for(char i = 0; i < 8; i++)
-    {
-      if (readCapacitivePin(i+2) <= TRIGGER_VAL) {
-        bitClear(currentpos,i);  
-      }
+    for (char i = 0; i < 8; i++) {
+      if (readCapacitivePin(i+2) <= TRIGGER_VAL) bitClear(currentpos,i);  
       else bitSet(currentpos,i);
     }
     //playing = (readCapacitivePin(10) <= TRIGGER_VAL);
@@ -83,11 +97,11 @@ void loop ()
      
      case B10000010: msgMidi(0xC0,0,++instrument); instrumentPreview(); break;
      case B10000100: msgMidi(0xC0,0,--instrument); instrumentPreview(); break;
-     case B10001000: if (bordon=!bordon) msgMidi(0x91,0x30,0x40);
-                     else msgMidi(0xB1,123,0); break;
-     case B10010000: if (bordoneta=!bordoneta) msgMidi(0x92,0x3C,0x40);
-                     else msgMidi(0xB2,123,0); break;
-     case B10100000: if (!(playing=!playing)) {stopPlayback();}
+     case B10001000: if (bordon=!bordon) startBordon();
+                     else stopBordon(); break;
+     case B10010000: if (bordoneta=!bordoneta) startBordoneta();
+                     else stopBordoneta(); break;
+     case B10100000: if (!(playing=!playing)) stopPlayback();
                      else startPlayback();
                      break;
      case B10000011: msgMidi(0xB0,0x07,volume+=5); break;
@@ -151,27 +165,52 @@ uint8_t readCapacitivePin(int pinToMeasure) {
   return cycles;
 }
 
+void startPlayback() {
+  startBordon();
+  startBordoneta();
+  startClarin();
+}
 
-void startPlayback()
-{
+void stopPlayback() {
+  stopClarin();
+  stopBordoneta();
+  stopBordon();
+}
+
+void startClarin() {
   msgMidi(0xB0,123,0);
-  msgMidi(0xB1,123,0);
-  msgMidi(0xB2,123,0);
   msgMidi(0xC0,0,instrument);
-  msgMidi(0xC1,0,instrument);
-  msgMidi(0xC2,0,instrument);
-  if (bordon) msgMidi(0x91,0x30,0x30);
-  if (bordoneta) msgMidi(0x92,0x3C,0x30);
-  playNote(0x48,0);
   playing=true;
+  playNote(previous,0);
   digitalWrite(led,HIGH);
 }
 
-void stopPlayback()
-{
+void stopClarin() {
   msgMidi(0xB0,123,0);
-  msgMidi(0xB1,123,0);
-  msgMidi(0xB2,123,0);
   playing=false;
   digitalWrite(led,LOW);
+}
+
+void startBordon() {
+  msgMidi(0xB1,123,0);
+  msgMidi(0xC1,0,instrument);
+  if (bordon) msgMidi(0x91,0x30,0x30);
+  bordonPlaying=true;
+}
+
+void stopBordon() {
+  msgMidi(0xB1,123,0);
+  bordonPlaying=false;
+}
+
+void startBordoneta() {
+  msgMidi(0xB2,123,0);
+  msgMidi(0xC2,0,instrument);
+  if (bordoneta) msgMidi(0x92,0x3C,0x30);
+  bordonetaPlaying=true;
+}
+
+void stopBordoneta() {
+  msgMidi(0xB2,123,0);
+  bordonetaPlaying=false;
 }
