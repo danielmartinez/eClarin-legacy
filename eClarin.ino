@@ -1,23 +1,31 @@
-#define TRIGGER_VAL 8 // sensor trigger value (<val is on, >= val is off)
-#define BORDON_TRIGGER_VAL 20
-#define BORDONETA_TRIGGER_VAL 60
-#define CLARIN_TRIGGER_VAL 100
+#include <SoftwareSerial.h>
 
-byte currentpos = 0;
+#define MIDISerialPin          1
+//#define MIDIResetPin          A0
+#define led                   13
+#define fsrAnalogPin          A0
+
+#define TRIGGER_VAL            8 // sensor trigger value (<val is on, >= val is off)
+#define BORDON_TRIGGER_VAL    20
+#define BORDONETA_TRIGGER_VAL 35
+#define CLARIN_TRIGGER_VAL    55
+
+byte currentpos=0;
 byte previous=0x48;
 byte previouspos;
 byte instrument=109, volume=127;
-int led = 13;
-int fsrAnalogPin=0;
 int fsrValue;
+
 boolean bordon=true, bordoneta=true;
 boolean bordonPlaying=true, bordonetaPlaying=true;
 boolean playing=true;
 
+SoftwareSerial midiSerial(0, MIDISerialPin);
+
 int msgMidi(int cmd, int note, int vel) {
-  Serial.write(cmd);
-  Serial.write(note);
-  Serial.write(vel);
+  midiSerial.write(cmd);
+  midiSerial.write(note);
+  midiSerial.write(vel);
 }
 
 void playNote(byte want, byte have) {
@@ -43,7 +51,15 @@ void instrumentPreview() {
 
 void setup() {
   pinMode(led,OUTPUT);
-  Serial.begin(31250);
+  midiSerial.begin(31250);
+  /*
+  pinMode(MIDIResetPin, OUTPUT);
+  digitalWrite(MIDIResetPin, LOW);
+  delay(100);
+  digitalWrite(MIDIResetPin, HIGH);
+  delay(100);
+  */
+  pinMode(fsrAnalogPin, INPUT);
   startPlayback();
 }
 
