@@ -82,7 +82,7 @@ void loop () {
       if (readCapacitivePin(i+2) <= TRIGGER_VAL) bitClear(currentpos,i);  
       else bitSet(currentpos,i);
     }
-    //playing = (readCapacitivePin(10) <= TRIGGER_VAL);
+
     if (currentpos!=previouspos)
     switch (currentpos) {
      case B01111101: ;; //DoA
@@ -111,15 +111,14 @@ void loop () {
      case B01111111: playNote(0x48,previous); break; //Do
      case B11111111: playNote(0x47,previous); break; //SiB
      
-     case B10000010: msgMidi(0xC0,0,++instrument); instrumentPreview(); break;
-     case B10000100: msgMidi(0xC0,0,--instrument); instrumentPreview(); break;
+     case B10000010: instrument++; instrumentPreview(); break;
+     case B10000100: instrument--; instrumentPreview(); break;
      case B10001000: if (bordon=!bordon) startBordon();
                      else stopBordon(); break;
      case B10010000: if (bordoneta=!bordoneta) startBordoneta();
                      else stopBordoneta(); break;
-     case B10100000: if (!(playing=!playing)) stopPlayback();
-                     else startPlayback();
-                     break;
+     case B10100000: if (playing=!playing) startClarin();
+                     else stopClarin(); break;
      case B10000011: msgMidi(0xB0,0x07,volume+=5); break;
      case B10000101: msgMidi(0xB0,0x07,volume-=5); break;
     }
