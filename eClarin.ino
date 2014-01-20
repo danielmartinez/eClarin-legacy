@@ -52,13 +52,15 @@ void instrumentPreview() {
 void setup() {
   pinMode(led,OUTPUT);
   midiSerial.begin(31250);
-  /*
-  pinMode(MIDIResetPin, OUTPUT);
-  digitalWrite(MIDIResetPin, LOW);
-  delay(100);
-  digitalWrite(MIDIResetPin, HIGH);
-  delay(100);
-  */
+  
+  #ifdef MIDIResetPin
+    pinMode(MIDIResetPin, OUTPUT);
+    digitalWrite(MIDIResetPin, LOW);
+    delay(100);
+    digitalWrite(MIDIResetPin, HIGH);
+    delay(100);
+  #endif
+  
   pinMode(fsrAnalogPin, INPUT);
   startPlayback();
 }
