@@ -3,19 +3,21 @@
 #define MIDISerialPin          1
 //#define MIDIResetPin          A0
 #define led                   13
-#define fsrAnalogPin          A0
+byte pins[]={2,3,4,5,6,7,8,9};
+//#define fsrAnalogPin          A0
 
 #define TRIGGER_VAL            8 // sensor trigger value (<val is on, >= val is off)
-#define BORDON_TRIGGER_VAL    20
-#define BORDONETA_TRIGGER_VAL 35
-#define CLARIN_TRIGGER_VAL    55
+#ifdef fsrAnalogPin
+  #define BORDON_TRIGGER_VAL    20
+  #define BORDONETA_TRIGGER_VAL 35
+  #define CLARIN_TRIGGER_VAL    55
+#endif
 
 byte currentpos=0;
 byte previous=0x48;
 byte previouspos;
 byte instrument=109, volume=127;
 int fsrValue;
-
 boolean bordon=true, bordoneta=true;
 boolean bordonPlaying=true, bordonetaPlaying=true;
 boolean playing=true;
@@ -60,12 +62,14 @@ void setup() {
     digitalWrite(MIDIResetPin, HIGH);
     delay(100);
   #endif
-  
-  pinMode(fsrAnalogPin, INPUT);
+  #ifdef fsrAnalogPin
+    pinMode(fsrAnalogPin, INPUT);
+  #endif
   startPlayback();
 }
 
 void loop () {
+  #ifdef fsrAnalogPin
     fsrValue=analogRead(fsrAnalogPin);
     if (fsrValue<BORDON_TRIGGER_VAL) {
       if (bordonPlaying) stopBordon();
@@ -79,9 +83,10 @@ void loop () {
       if (playing) stopClarin();
     }
     else if (!playing) startClarin();
+  #endif
     currentpos=0;
     for (char i = 0; i < 8; i++) {
-      if (readCapacitivePin(i+2) <= TRIGGER_VAL) bitClear(currentpos,i);  
+      if (readCapacitivePin(pins[i]) <= TRIGGER_VAL) bitClear(currentpos,i);  
       else bitSet(currentpos,i);
     }
 
