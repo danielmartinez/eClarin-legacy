@@ -4,7 +4,7 @@
 //#define MIDIResetPin          A0
 #define led                   13
 byte pins[]={2,3,4,5,6,7,8,9};
-//#define fsrAnalogPin          A0
+#define fsrAnalogPin          A0
 
 #define TRIGGER_VAL            8 // sensor trigger value (<val is on, >= val is off)
 #ifdef fsrAnalogPin
@@ -49,87 +49,6 @@ void instrumentPreview() {
   if (bordon) msgMidi(0x91,0x30,0x30);
   if (bordoneta) msgMidi(0x92,0x3C,0x30);
   previous=0;
-}
-
-void setup() {
-  pinMode(led,OUTPUT);
-  midiSerial.begin(31250);
-  
-  #ifdef MIDIResetPin
-    pinMode(MIDIResetPin, OUTPUT);
-    digitalWrite(MIDIResetPin, LOW);
-    delay(100);
-    digitalWrite(MIDIResetPin, HIGH);
-    delay(100);
-  #endif
-  #ifdef fsrAnalogPin
-    pinMode(fsrAnalogPin, INPUT);
-  #endif
-  startPlayback();
-}
-
-void loop () {
-  #ifdef fsrAnalogPin
-    fsrValue=analogRead(fsrAnalogPin);
-    if (fsrValue<BORDON_TRIGGER_VAL) {
-      if (bordonPlaying) stopBordon();
-    }
-    else if (!bordonPlaying) startBordon();
-    if (fsrValue<BORDONETA_TRIGGER_VAL) {
-      if (bordonetaPlaying) stopBordoneta();
-    }
-    else if (!bordonetaPlaying) startBordoneta();
-    if (fsrValue<CLARIN_TRIGGER_VAL)  {
-      if (playing) stopClarin();
-    }
-    else if (!playing) startClarin();
-  #endif
-    currentpos=0;
-    for (char i = 0; i < 8; i++) {
-      if (readCapacitivePin(pins[i]) <= TRIGGER_VAL) bitClear(currentpos,i);  
-      else bitSet(currentpos,i);
-    }
-
-    if (currentpos!=previouspos)
-    switch (currentpos) {
-     case B01111101: ;; //DoA
-     case B00000000: playNote(0x54,previous); break; //DoA
-     case B00000001: ;; //Si
-     case B01110001: playNote(0x53,previous); break; //Si
-     case B00000101: ;; //Sib
-     case B00000010: ;; //Sib
-     case B01110101: playNote(0x52,previous); break; //Sib
-     case B00000011: ;; //La
-     case B01110011: playNote(0x51,previous); break; //La
-     case B00001011: ;; //Lab
-     case B00101011: ;; //Lab
-     case B01101011: ;; //Lab
-     case B01110110: playNote(0x50,previous); break; //Lab
-     case B00000111: ;; //Sol
-     case B01110111: playNote(0x4F,previous); break; //Sol
-     case B00110111: playNote(0x4E,previous); break; //Fa#
-     case B00001111: ;; //Fa
-     case B11101111: ;; //Fa
-     case B01101111: playNote(0x4D,previous); break; //Fa
-     case B00011111: playNote(0x4C,previous); break; //Mi
-     case B01011111: playNote(0x4B,previous); break; //Mib
-     case B00111111: playNote(0x4A,previous); break; //Re
-     case B10111111: playNote(0x49,previous); break; //Do#
-     case B01111111: playNote(0x48,previous); break; //Do
-     case B11111111: playNote(0x47,previous); break; //SiB
-     
-     case B10000010: instrument++; instrumentPreview(); break;
-     case B10000100: instrument--; instrumentPreview(); break;
-     case B10001000: if (bordon=!bordon) startBordon();
-                     else stopBordon(); break;
-     case B10010000: if (bordoneta=!bordoneta) startBordoneta();
-                     else stopBordoneta(); break;
-     case B10100000: if (playing=!playing) startClarin();
-                     else stopClarin(); break;
-     case B10000011: msgMidi(0xB0,0x07,volume+=5); break;
-     case B10000101: msgMidi(0xB0,0x07,volume-=5); break;
-    }
-    previouspos=currentpos;
 }
 
 uint8_t readCapacitivePin(int pinToMeasure) {
@@ -235,4 +154,86 @@ void startBordoneta() {
 void stopBordoneta() {
   msgMidi(0xB2,123,0);
   bordonetaPlaying=false;
+}
+
+void setup() {
+  pinMode(led,OUTPUT);
+  midiSerial.begin(31250);
+  
+  #ifdef MIDIResetPin
+    pinMode(MIDIResetPin, OUTPUT);
+    digitalWrite(MIDIResetPin, LOW);
+    delay(100);
+    digitalWrite(MIDIResetPin, HIGH);
+    delay(100);
+  #endif
+  #ifdef fsrAnalogPin
+    pinMode(fsrAnalogPin, INPUT);
+  #endif
+  startPlayback();
+}
+
+void loop () {
+    #ifdef fsrAnalogPin
+      fsrValue=analogRead(fsrAnalogPin);
+      if (fsrValue<BORDON_TRIGGER_VAL) {
+        if (bordonPlaying) stopBordon();
+      }
+      else if (!bordonPlaying) startBordon();
+      if (fsrValue<BORDONETA_TRIGGER_VAL) {
+        if (bordonetaPlaying) stopBordoneta();
+      }
+      else if (!bordonetaPlaying) startBordoneta();
+      if (fsrValue<CLARIN_TRIGGER_VAL)  {
+        if (playing) stopClarin();
+      }
+      else if (!playing) startClarin();
+    #endif
+  
+    currentpos=0;
+    for (char i = 0; i < 8; i++) {
+      if (readCapacitivePin(pins[i]) <= TRIGGER_VAL) bitClear(currentpos,i);  
+      else bitSet(currentpos,i);
+    }
+
+    if (currentpos!=previouspos)
+    switch (currentpos) {
+     case B01111101: ;; //DoA
+     case B00000000: playNote(0x54,previous); break; //DoA
+     case B00000001: ;; //Si
+     case B01110001: playNote(0x53,previous); break; //Si
+     case B00000101: ;; //Sib
+     case B00000010: ;; //Sib
+     case B01110101: playNote(0x52,previous); break; //Sib
+     case B00000011: ;; //La
+     case B01110011: playNote(0x51,previous); break; //La
+     case B00001011: ;; //Lab
+     case B00101011: ;; //Lab
+     case B01101011: ;; //Lab
+     case B01110110: playNote(0x50,previous); break; //Lab
+     case B00000111: ;; //Sol
+     case B01110111: playNote(0x4F,previous); break; //Sol
+     case B00110111: playNote(0x4E,previous); break; //Fa#
+     case B00001111: ;; //Fa
+     case B11101111: ;; //Fa
+     case B01101111: playNote(0x4D,previous); break; //Fa
+     case B00011111: playNote(0x4C,previous); break; //Mi
+     case B01011111: playNote(0x4B,previous); break; //Mib
+     case B00111111: playNote(0x4A,previous); break; //Re
+     case B10111111: playNote(0x49,previous); break; //Do#
+     case B01111111: playNote(0x48,previous); break; //Do
+     case B11111111: playNote(0x47,previous); break; //SiB
+     
+     case B10000010: instrument++; instrumentPreview(); break;
+     case B10000100: instrument--; instrumentPreview(); break;
+     case B10001000: if (bordon=!bordon) startBordon();
+                     else stopBordon(); break;
+     case B10010000: if (bordoneta=!bordoneta) startBordoneta();
+                     else stopBordoneta(); break;
+     case B10100000: if (playing=!playing) startClarin();
+                     else stopClarin(); break;
+     case B10000011: msgMidi(0xB0,0x07,volume+=5); break;
+     case B10000101: msgMidi(0xB0,0x07,volume-=5); break;
+    }
+    previouspos=currentpos;
 }
