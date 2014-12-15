@@ -12,7 +12,7 @@ How to load the firmware
 ------------------------
 This project runs on an Arduino board, so you can get the sketch from this source code and load to it.
 
-Once you load the sketch on the board you can program the Moco LUFA Firmware, that allows the PC to recognize the Arduino board as a standard USB MIDI controller. You can find that firmware and instructions here http://morecatlab.akiba.coocan.jp/morecat_lab/MocoLUFA.html
+Once you load the sketch on the board you can program the Moco LUFA Firmware, that allows the PC to recognize the Arduino board as a standard USB MIDI controller. You can find that firmware and instructions here http://morecatlab.akiba.coocan.jp/lab/index.php/aruino/midi-firmware-for-arduino-uno-moco/?lang=en
 
 Be careful because if you want to re-program the Arduino board you must program the Arduino firmware before, then load the modifyed sketch, then program the Moco LUFA Firmware again.
 
