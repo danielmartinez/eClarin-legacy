@@ -1,18 +1,52 @@
-#include <SoftwareSerial.h>
+/*
+ Copyright (C) 2015 Daniel Martinez <entaltoaragon@gmail.com>
 
-#define MIDISerialPin          1
-//#define MIDIResetPin          A0
-#define led                   13
-byte pins[]={2,3,4,5,6,7,8,9};
-#define fsrAnalogPin          A0
+ This program is free software; you can redistribute it and/or
+ modify it under the terms of the GNU General Public License
+ version 2 as published by the Free Software Foundation.
+*/
+#include <Arduino.h>
 
-#define TRIGGER_VAL            8 // sensor trigger value (<val is on, >= val is off)
-#ifdef fsrAnalogPin
+/**************************************************************/
+// CONFIGURATION
+#define SENSOR_PINS             {2,3,4,5,6,7,8,9}
+//#define BORDON_SENSOR_PIN       A4
+
+#define VS1053_MIDI_SYNTH        // Uncomment this line for VS1053 SPI support
+#ifdef VS1053_MIDI_SYNTH
+  #define XCS_PIN               A3
+  #define XDCS_PIN              A2
+  #define DREQ_PIN              A1
+  #define XRST_PIN              A0
+#else
+  #define LED                   13 // can't use pin 13 for led if SPI communication is in use
+#endif
+
+#define SERIAL_MIDI              1
+
+#define TRIGGER_VAL              8 // sensor trigger value (<val is on, >= val is off)
+#ifdef BORDON_SENSOR_PIN
   #define BORDON_TRIGGER_VAL    20
   #define BORDONETA_TRIGGER_VAL 35
   #define CLARIN_TRIGGER_VAL    55
 #endif
 
+/**************************************************************/
+// AUTOMATIC DEFINES
+#ifdef VS1053_MIDI_SYNTH
+  #include "VS1053.h"
+  #include <SPI.h>
+  VS1053 synth(XCS_PIN,XDCS_PIN,DREQ_PIN,XRST_PIN);
+  VS1053::RtMidi midiSynth(synth);
+#endif
+#ifdef SERIAL_MIDI
+  #include <SoftwareSerial.h>
+  SoftwareSerial midiSerial(0, SERIAL_MIDI);
+#endif
+
+/**************************************************************/
+//INITIALIZATION AND GLOBAL VARS
+byte pins[]=SENSOR_PINS;
 byte currentpos=0;
 byte previous=0x48;
 byte previouspos;
@@ -22,12 +56,16 @@ boolean bordon=true, bordoneta=true;
 boolean bordonPlaying=true, bordonetaPlaying=true;
 boolean playing=true;
 
-SoftwareSerial midiSerial(0, MIDISerialPin);
-
+/**************************************************************/
 int msgMidi(int cmd, int note, int vel) {
+#ifdef SERIAL_MIDI
   midiSerial.write(cmd);
   midiSerial.write(note);
   midiSerial.write(vel);
+#endif
+#ifdef VS1053_MIDI_SYNTH
+  midiSynth.write(cmd,note,vel);
+#endif
 }
 
 void playNote(byte want, byte have) {
@@ -106,30 +144,22 @@ uint8_t readCapacitivePin(int pinToMeasure) {
   return cycles;
 }
 
-void startPlayback() {
-  startBordon();
-  startBordoneta();
-  startClarin();
-}
-
-void stopPlayback() {
-  stopClarin();
-  stopBordoneta();
-  stopBordon();
-}
-
 void startClarin() {
   msgMidi(0xB0,123,0);
   msgMidi(0xC0,0,instrument);
   playing=true;
   playNote(previous,0);
-  digitalWrite(led,HIGH);
+  #ifndef VS1053_MIDI_SYNTH
+    digitalWrite(LED,HIGH);
+  #endif
 }
 
 void stopClarin() {
   msgMidi(0xB0,123,0);
   playing=false;
-  digitalWrite(led,LOW);
+  #ifndef VS1053_MIDI_SYNTH
+    digitalWrite(LED,LOW);
+  #endif
 }
 
 void startBordon() {
@@ -156,16 +186,28 @@ void stopBordoneta() {
   bordonetaPlaying=false;
 }
 
+void startPlayback() {
+  startBordon();
+  startBordoneta();
+  startClarin();
+}
+
+void stopPlayback() {
+  stopClarin();
+  stopBordoneta();
+  stopBordon();
+}
+
 void setup() {
-  pinMode(led,OUTPUT);
-  midiSerial.begin(31250);
-  
-  #ifdef MIDIResetPin
-    pinMode(MIDIResetPin, OUTPUT);
-    digitalWrite(MIDIResetPin, LOW);
-    delay(100);
-    digitalWrite(MIDIResetPin, HIGH);
-    delay(100);
+  #ifdef VS1053_MIDI_SYNTH
+    SPI.begin();
+    synth.begin();
+    midiSynth.begin();
+  #else
+     pinMode(LED,OUTPUT);
+  #endif
+  #ifdef SERIAL_MIDI
+    midiSerial.begin(31250);
   #endif
   #ifdef fsrAnalogPin
     pinMode(fsrAnalogPin, INPUT);
@@ -173,9 +215,9 @@ void setup() {
   startPlayback();
 }
 
-void loop () {
-    #ifdef fsrAnalogPin
-      fsrValue=analogRead(fsrAnalogPin);
+void loop() {
+    #ifdef BORDON_SENSOR_PIN
+      fsrValue=analogRead(BORDON_SENSOR_PIN);
       if (fsrValue<BORDON_TRIGGER_VAL) {
         if (bordonPlaying) stopBordon();
       }
@@ -224,8 +266,8 @@ void loop () {
      case B01111111: playNote(0x48,previous); break; //Do
      case B11111111: playNote(0x47,previous); break; //SiB
      
-     case B10000010: instrument++; instrumentPreview(); break;
-     case B10000100: instrument--; instrumentPreview(); break;
+     case B10000010: instrument = ++instrument % 128; instrumentPreview(); break;
+     case B10000100: instrument = --instrument % 128; instrumentPreview(); break;
      case B10001000: if (bordon=!bordon) startBordon();
                      else stopBordon(); break;
      case B10010000: if (bordoneta=!bordoneta) startBordoneta();
