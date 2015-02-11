@@ -10,9 +10,9 @@
 /**************************************************************/
 // CONFIGURATION
 #define SENSOR_PINS             {2,3,4,5,6,7,8,9}
-//#define BORDON_SENSOR_PIN       A4
+//#define BORDON_SENSOR           A4
 
-#define VS1053_MIDI_SYNTH        // Uncomment this line for VS1053 SPI support
+#define VS1053_MIDI_SYNTH
 #ifdef VS1053_MIDI_SYNTH
   #define XCS_PIN               A3
   #define XDCS_PIN              A2
@@ -22,10 +22,10 @@
   #define LED                   13 // can't use pin 13 for led if SPI communication is in use
 #endif
 
-#define SERIAL_MIDI              1
+//#define SERIAL_MIDI              1
 
 #define TRIGGER_VAL              8 // sensor trigger value (<val is on, >= val is off)
-#ifdef BORDON_SENSOR_PIN
+#ifdef BORDON_SENSOR
   #define BORDON_TRIGGER_VAL    20
   #define BORDONETA_TRIGGER_VAL 35
   #define CLARIN_TRIGGER_VAL    55
@@ -46,11 +46,10 @@
 
 /**************************************************************/
 //INITIALIZATION AND GLOBAL VARS
-byte pins[]=SENSOR_PINS;
-byte currentpos=0;
-byte previous=0x48;
-byte previouspos;
-byte instrument=109, volume=127;
+uint8_t pins[]=SENSOR_PINS;
+byte currentpos=0, previouspos;
+uint8_t previous=0x48;
+uint8_t instrument=109, volume=127;
 int fsrValue;
 boolean bordon=true, bordoneta=true;
 boolean bordonPlaying=true, bordonetaPlaying=true;
@@ -68,7 +67,7 @@ int msgMidi(int cmd, int note, int vel) {
 #endif
 }
 
-void playNote(byte want, byte have) {
+void playNote(uint8_t want, uint8_t have) {
   if ((have!=want) && playing) {
     msgMidi(0xB0,123,0);
     msgMidi(0x90,want,127);
@@ -204,7 +203,7 @@ void setup() {
     synth.begin();
     midiSynth.begin();
   #else
-     pinMode(LED,OUTPUT);
+    pinMode(LED,OUTPUT);
   #endif
   #ifdef SERIAL_MIDI
     midiSerial.begin(31250);
@@ -216,8 +215,8 @@ void setup() {
 }
 
 void loop() {
-    #ifdef BORDON_SENSOR_PIN
-      fsrValue=analogRead(BORDON_SENSOR_PIN);
+    #ifdef BORDON_SENSOR
+      fsrValue=analogRead(BORDON_SENSOR);
       if (fsrValue<BORDON_TRIGGER_VAL) {
         if (bordonPlaying) stopBordon();
       }
@@ -233,7 +232,7 @@ void loop() {
     #endif
   
     currentpos=0;
-    for (char i = 0; i < 8; i++) {
+    for (uint8_t i = 0; i < 8; i++) {
       if (readCapacitivePin(pins[i]) <= TRIGGER_VAL) bitClear(currentpos,i);  
       else bitSet(currentpos,i);
     }
@@ -266,8 +265,8 @@ void loop() {
      case B01111111: playNote(0x48,previous); break; //Do
      case B11111111: playNote(0x47,previous); break; //SiB
      
-     case B10000010: instrument = ++instrument % 128; instrumentPreview(); break;
-     case B10000100: instrument = --instrument % 128; instrumentPreview(); break;
+     case B10000010: instrument++; instrumentPreview(); break;
+     case B10000100: instrument--; instrumentPreview(); break;
      case B10001000: if (bordon=!bordon) startBordon();
                      else stopBordon(); break;
      case B10010000: if (bordoneta=!bordoneta) startBordoneta();
