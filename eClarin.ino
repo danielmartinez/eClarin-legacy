@@ -31,6 +31,8 @@
   #define CLARIN_TRIGGER_VAL    55
 #endif
 
+//#define SERIAL_DEBUG
+
 /**************************************************************/
 // AUTOMATIC DEFINES
 #ifdef VS1053_MIDI_SYNTH
@@ -40,6 +42,7 @@
   VS1053::RtMidi midiSynth(synth);
 #endif
 #ifdef SERIAL_MIDI
+  #undef SERIAL_DEBUG
   #include <SoftwareSerial.h>
   SoftwareSerial midiSerial(0, SERIAL_MIDI);
 #endif
@@ -207,6 +210,8 @@ void setup() {
   #endif
   #ifdef SERIAL_MIDI
     midiSerial.begin(31250);
+  #elif defined(SERIAL_DEBUG)
+    Serial.begin(115200);
   #endif
   #ifdef fsrAnalogPin
     pinMode(fsrAnalogPin, INPUT);
@@ -230,12 +235,21 @@ void loop() {
       }
       else if (!playing) startClarin();
     #endif
-  
+    uint8_t val;
     currentpos=0;
     for (uint8_t i = 0; i < 8; i++) {
-      if (readCapacitivePin(pins[i]) <= TRIGGER_VAL) bitClear(currentpos,i);  
+      val=readCapacitivePin(pins[i]);
+      if (val <= TRIGGER_VAL) bitClear(currentpos,i);
       else bitSet(currentpos,i);
+      #ifdef SERIAL_DEBUG
+        Serial.print(val);
+        Serial.print(' ');
+      #endif
     }
+    #ifdef SERIAL_DEBUG
+      Serial.print(currentpos,BIN);
+      Serial.println(" ");
+    #endif
 
     if (currentpos!=previouspos)
     switch (currentpos) {
