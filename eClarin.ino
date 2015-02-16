@@ -108,6 +108,9 @@ uint8_t readCapacitivePin(int pinToMeasure) {
   *port &= ~(bitmask);
   *ddr  |= bitmask;
   delay(1);
+  uint8_t SREG_old = SREG; //back up the AVR Status Register
+  // Prevent the timer IRQ from disturbing our measurement
+  noInterrupts();
   // Make the pin an input with the internal pull-up on
   *ddr &= ~(bitmask);
   *port |= bitmask;
@@ -133,6 +136,9 @@ uint8_t readCapacitivePin(int pinToMeasure) {
   else if (*pin & bitmask) { cycles = 14;}
   else if (*pin & bitmask) { cycles = 15;}
   else if (*pin & bitmask) { cycles = 16;}
+
+  // End of timing-critical section; turn interrupts back on if they were on before, or leave them off if they were off before
+  SREG = SREG_old;
 
   // Discharge the pin again by setting it low and output
   //  It's important to leave the pins low if you want to 
