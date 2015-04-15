@@ -19,7 +19,7 @@
   #define DREQ_PIN              A1
   #define XRST_PIN              A0
 #else
-  #define LED                   13 // can't use pin 13 for led if SPI communication is in use
+  // #define LED                   13 // can't use pin 13 for led if SPI communication is in use
 #endif
 
 //#define SERIAL_MIDI              1
@@ -36,10 +36,9 @@
 /**************************************************************/
 // AUTOMATIC DEFINES
 #ifdef VS1053_MIDI_SYNTH
-  #include "VS1053.h"
   #include <SPI.h>
-  VS1053 synth(XCS_PIN,XDCS_PIN,DREQ_PIN,XRST_PIN);
-  VS1053::RtMidi midiSynth(synth);
+  #include "V1053MidiSynth.h"
+  V1053MidiSynth synth(XRST_PIN,DREQ_PIN,XDCS_PIN,XCS_PIN);
 #endif
 #ifdef SERIAL_MIDI
   #undef SERIAL_DEBUG
@@ -52,11 +51,11 @@
 uint8_t pins[]=SENSOR_PINS;
 byte currentpos=0, previouspos;
 uint8_t previous=0x48;
-uint8_t instrument=109, volume=127;
+uint8_t instrument=109, vol=127;
 int fsrValue;
 boolean bordon=true, bordoneta=true;
-boolean bordonPlaying=true, bordonetaPlaying=true;
-boolean playing=true;
+boolean bordonPlaying=false, bordonetaPlaying=false;
+boolean playing=false;
 
 /**************************************************************/
 int msgMidi(int cmd, int note, int vel) {
@@ -66,29 +65,36 @@ int msgMidi(int cmd, int note, int vel) {
   midiSerial.write(vel);
 #endif
 #ifdef VS1053_MIDI_SYNTH
-  midiSynth.write(cmd,note,vel);
+  synth.midiWriteData(cmd,note,vel);
 #endif
+}
+
+void setInstrument(uint8_t channel, uint8_t instrument) {
+  msgMidi((0xC0 | channel),instrument,0);
+}
+
+void noteOn(uint8_t channel, uint8_t note) {
+  msgMidi((0x90 | channel),note,120);
+}
+
+void noteOff(uint8_t channel, uint8_t note) {
+  msgMidi((0x80 | channel),note,120);
 }
 
 void playNote(uint8_t want, uint8_t have) {
   if ((have!=want) && playing) {
-    msgMidi(0xB0,123,0);
-    msgMidi(0x90,want,127);
+    noteOff(0,have);
+    noteOn(0,want);
     previous=want;
   }
 }
 
 void instrumentPreview() {
-  msgMidi(0xB0,123,0);
-  msgMidi(0xB1,123,0);
-  msgMidi(0xB2,123,0);
-  msgMidi(0xC0,0,instrument);
-  msgMidi(0xC1,0,instrument);
-  msgMidi(0xC2,0,instrument);
-  msgMidi(0x90,0x51,127);
-  if (bordon) msgMidi(0x91,0x30,0x30);
-  if (bordoneta) msgMidi(0x92,0x3C,0x30);
-  previous=0;
+  stopPlayback();
+  setInstrument(0,instrument);
+  setInstrument(1,instrument);
+  setInstrument(2,instrument);
+  startPlayback();
 }
 
 uint8_t readCapacitivePin(int pinToMeasure) {
@@ -153,44 +159,44 @@ uint8_t readCapacitivePin(int pinToMeasure) {
 }
 
 void startClarin() {
-  msgMidi(0xB0,123,0);
-  msgMidi(0xC0,0,instrument);
+  noteOff(0,previous);
+  setInstrument(0,instrument);
   playing=true;
   playNote(previous,0);
   #ifndef VS1053_MIDI_SYNTH
-    digitalWrite(LED,HIGH);
+  //  digitalWrite(LED,HIGH);
   #endif
 }
 
 void stopClarin() {
-  msgMidi(0xB0,123,0);
+  noteOff(0,previous);
   playing=false;
   #ifndef VS1053_MIDI_SYNTH
-    digitalWrite(LED,LOW);
+  //  digitalWrite(LED,LOW);
   #endif
 }
 
 void startBordon() {
-  msgMidi(0xB1,123,0);
-  msgMidi(0xC1,0,instrument);
-  if (bordon) msgMidi(0x91,0x30,0x30);
+  noteOff(1,0x30);
+  setInstrument(1,instrument);
+  if (bordon) noteOn(1,0x30);
   bordonPlaying=true;
 }
 
 void stopBordon() {
-  msgMidi(0xB1,123,0);
+  noteOff(1,0x30);
   bordonPlaying=false;
 }
 
 void startBordoneta() {
-  msgMidi(0xB2,123,0);
-  msgMidi(0xC2,0,instrument);
-  if (bordoneta) msgMidi(0x92,0x3C,0x30);
+  noteOff(2,0x3C);
+  setInstrument(2,instrument);
+  if (bordoneta) noteOn(2,0x3C);
   bordonetaPlaying=true;
 }
 
 void stopBordoneta() {
-  msgMidi(0xB2,123,0);
+  noteOff(2,0x3C);
   bordonetaPlaying=false;
 }
 
@@ -208,11 +214,9 @@ void stopPlayback() {
 
 void setup() {
   #ifdef VS1053_MIDI_SYNTH
-    SPI.begin();
     synth.begin();
-    midiSynth.begin();
   #else
-    pinMode(LED,OUTPUT);
+    // pinMode(LED,OUTPUT);
   #endif
   #ifdef SERIAL_MIDI
     midiSerial.begin(31250);
@@ -222,7 +226,8 @@ void setup() {
   #ifdef fsrAnalogPin
     pinMode(fsrAnalogPin, INPUT);
   #endif
-  startPlayback();
+  delay(5);
+  instrumentPreview();
 }
 
 void loop() {
@@ -293,8 +298,8 @@ void loop() {
                      else stopBordoneta(); break;
      case B10100000: if (playing=!playing) startClarin();
                      else stopClarin(); break;
-     case B10000011: msgMidi(0xB0,0x07,volume+=5); break;
-     case B10000101: msgMidi(0xB0,0x07,volume-=5); break;
+     /*case B10000011: msgMidi(0xB0,0x07,vol+=5); break;
+     case B10000101: msgMidi(0xB0,0x07,vol-=5); break;*/
     }
     previouspos=currentpos;
 }
