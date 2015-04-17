@@ -19,10 +19,10 @@
   #define DREQ_PIN              A1
   #define XRST_PIN              A0
 #else
-  // #define LED                   13 // can't use pin 13 for led if SPI communication is in use
+  #define LED                   13 //can't use pin 13 for led if SPI communication is in use
 #endif
 
-//#define SERIAL_MIDI              1
+#define SERIAL_MIDI              1
 
 #define TRIGGER_VAL              8 // sensor trigger value (<val is on, >= val is off)
 #ifdef BORDON_SENSOR
@@ -32,7 +32,19 @@
 #endif
 
 //#define SERIAL_DEBUG
+#ifdef SERIAL_DEBUG
+  //#define VERBOSE_DEBUG
+  #undef SERIAL_MIDI
+#endif
 
+//#define STORE_CONFIG_ON_EEPROM
+#ifdef STORE_CONFIG_ON_EEPROM
+  #define EEPROM_ADDR_INSTRUMENT 0
+  #define EEPROM_ADDR_BORDON 1
+  #define EEPROM_ADDR_BORDONETA 2
+  #define EEPROM_ADDR_VOLUME 3
+  #define CONFIG_RESET_START_POSITION B00000000
+#endif
 /**************************************************************/
 // AUTOMATIC DEFINES
 #ifdef VS1053_MIDI_SYNTH
@@ -44,6 +56,9 @@
   #undef SERIAL_DEBUG
   #include <SoftwareSerial.h>
   SoftwareSerial midiSerial(0, SERIAL_MIDI);
+#endif
+#ifdef STORE_CONFIG_ON_EEPROM
+  #include <EEPROM.h>
 #endif
 
 /**************************************************************/
@@ -89,11 +104,16 @@ void playNote(uint8_t want, uint8_t have) {
   }
 }
 
-void instrumentPreview() {
+void setInstrument() {
   stopPlayback();
   setInstrument(0,instrument);
   setInstrument(1,instrument);
   setInstrument(2,instrument);
+  #ifdef SERIAL_DEBUG
+    Serial.print("Instrument set to ");
+    Serial.print(instrument);
+    Serial.println("");
+  #endif
   startPlayback();
 }
 
@@ -158,13 +178,68 @@ uint8_t readCapacitivePin(int pinToMeasure) {
   return cycles;
 }
 
+uint8_t readPins(){
+  uint8_t positions=0, val;
+  for (uint8_t i = 0; i < 8; i++) {
+    val=readCapacitivePin(pins[i]);
+    if (val <= TRIGGER_VAL) bitClear(positions,i);
+    else bitSet(positions,i);
+    #ifdef VERBOSE_DEBUG
+      Serial.print(val);
+      Serial.print(' ');
+    #endif
+  }
+  #ifdef VERBOSE_DEBUG
+    Serial.print(positions,BIN);
+    Serial.println(" ");
+  #endif
+  return positions;
+}
+
+void readConfig(){
+  #ifdef STORE_CONFIG_ON_EEPROM
+    instrument=EEPROM.read(EEPROM_ADDR_INSTRUMENT);
+    bordon=EEPROM.read(EEPROM_ADDR_BORDON);
+    bordoneta=EEPROM.read(EEPROM_ADDR_BORDONETA);
+    vol=EEPROM.read(EEPROM_ADDR_VOLUME);
+  #endif
+  #ifdef SERIAL_DEBUG
+    Serial.println("Settings loaded from EEPROM");
+  #endif
+}
+
+void writeConfig(){
+  #ifdef STORE_CONFIG_ON_EEPROM
+    EEPROM.write(EEPROM_ADDR_INSTRUMENT,instrument);
+    EEPROM.write(EEPROM_ADDR_BORDON,bordon);
+    EEPROM.write(EEPROM_ADDR_BORDONETA,bordoneta);
+    EEPROM.write(EEPROM_ADDR_VOLUME,vol);
+  #endif
+  #ifdef SERIAL_DEBUG
+    Serial.print("Settings saved - Instrument: ");
+    Serial.print(instrument);
+    Serial.print(", bordon ");
+    if (bordon) Serial.print("ON");
+    else Serial.print("OFF");
+    Serial.print(", bordoneta ");
+    if (bordoneta) Serial.print("ON");
+    else Serial.print("OFF");
+    Serial.print(", volume: ");
+    Serial.print(vol);
+    Serial.println("");
+  #endif
+}
+
 void startClarin() {
   noteOff(0,previous);
   setInstrument(0,instrument);
   playing=true;
   playNote(previous,0);
   #ifndef VS1053_MIDI_SYNTH
-  //  digitalWrite(LED,HIGH);
+    digitalWrite(LED,HIGH);
+  #endif
+  #ifdef SERIAL_DEBUG
+    Serial.println("Clarin start");
   #endif
 }
 
@@ -172,7 +247,10 @@ void stopClarin() {
   noteOff(0,previous);
   playing=false;
   #ifndef VS1053_MIDI_SYNTH
-  //  digitalWrite(LED,LOW);
+    digitalWrite(LED,LOW);
+  #endif
+  #ifdef SERIAL_DEBUG
+    Serial.println("Clarin stop");
   #endif
 }
 
@@ -181,11 +259,17 @@ void startBordon() {
   setInstrument(1,instrument);
   if (bordon) noteOn(1,0x30);
   bordonPlaying=true;
+  #ifdef SERIAL_DEBUG
+    Serial.println("Bordon start");
+  #endif
 }
 
 void stopBordon() {
   noteOff(1,0x30);
   bordonPlaying=false;
+  #ifdef SERIAL_DEBUG
+    Serial.println("Bordon stop");
+  #endif
 }
 
 void startBordoneta() {
@@ -193,30 +277,42 @@ void startBordoneta() {
   setInstrument(2,instrument);
   if (bordoneta) noteOn(2,0x3C);
   bordonetaPlaying=true;
+  #ifdef SERIAL_DEBUG
+    Serial.println("Bordoneta start");
+  #endif
 }
 
 void stopBordoneta() {
   noteOff(2,0x3C);
   bordonetaPlaying=false;
+  #ifdef SERIAL_DEBUG
+    Serial.println("Bordoneta stop");
+  #endif
 }
 
 void startPlayback() {
   startBordon();
   startBordoneta();
   startClarin();
+  #ifdef SERIAL_DEBUG
+    Serial.println("Playback start");
+  #endif
 }
 
 void stopPlayback() {
   stopClarin();
   stopBordoneta();
   stopBordon();
+  #ifdef SERIAL_DEBUG
+    Serial.println("Playback stop");
+  #endif
 }
 
 void setup() {
   #ifdef VS1053_MIDI_SYNTH
     synth.begin();
   #else
-    // pinMode(LED,OUTPUT);
+    pinMode(LED,OUTPUT);
   #endif
   #ifdef SERIAL_MIDI
     midiSerial.begin(31250);
@@ -227,7 +323,29 @@ void setup() {
     pinMode(fsrAnalogPin, INPUT);
   #endif
   delay(5);
-  instrumentPreview();
+  #ifdef STORE_CONFIG_ON_EEPROM
+    if (readPins()==CONFIG_RESET_START_POSITION) {
+      writeConfig();
+    }
+    else {
+      readConfig();
+      setInstrument();
+    }
+  #endif
+  #ifdef SERIAL_DEBUG
+    Serial.print("Settings loaded - Instrument: ");
+    Serial.print(instrument);
+    Serial.print(", bordon ");
+    if (bordon) Serial.print("ON");
+    else Serial.print("OFF");
+    Serial.print(", bordoneta ");
+    if (bordoneta) Serial.print("ON");
+    else Serial.print("OFF");
+    Serial.print(", volume: ");
+    Serial.print(vol);
+    Serial.println("");
+  #endif
+  setInstrument();
 }
 
 void loop() {
@@ -246,22 +364,7 @@ void loop() {
       }
       else if (!playing) startClarin();
     #endif
-    uint8_t val;
-    currentpos=0;
-    for (uint8_t i = 0; i < 8; i++) {
-      val=readCapacitivePin(pins[i]);
-      if (val <= TRIGGER_VAL) bitClear(currentpos,i);
-      else bitSet(currentpos,i);
-      #ifdef SERIAL_DEBUG
-        Serial.print(val);
-        Serial.print(' ');
-      #endif
-    }
-    #ifdef SERIAL_DEBUG
-      Serial.print(currentpos,BIN);
-      Serial.println(" ");
-    #endif
-
+    currentpos=readPins();
     if (currentpos!=previouspos)
     switch (currentpos) {
      case B01111101: ;; //DoA
@@ -290,12 +393,24 @@ void loop() {
      case B01111111: playNote(0x48,previous); break; //Do
      case B11111111: playNote(0x47,previous); break; //SiB
      
-     case B10000010: instrument++; instrumentPreview(); break;
-     case B10000100: instrument--; instrumentPreview(); break;
+     case B10000010: instrument++; setInstrument(); writeConfig(); break;
+     case B10000100: instrument--; setInstrument(); writeConfig(); break;
      case B10001000: if (bordon=!bordon) startBordon();
-                     else stopBordon(); break;
+                     else stopBordon();
+                     #ifdef SERIAL_DEBUG
+                       Serial.print("Bordon ");
+                       if (bordon) Serial.println("ON");
+                       else Serial.println("OFF");
+                     #endif
+                     writeConfig(); break;
      case B10010000: if (bordoneta=!bordoneta) startBordoneta();
-                     else stopBordoneta(); break;
+                     else stopBordoneta();
+                     #ifdef SERIAL_DEBUG
+                       Serial.print("Bordoneta ");
+                       if (bordoneta) Serial.println("ON");
+                       else Serial.println("OFF");
+                     #endif
+                     writeConfig(); break;
      case B10100000: if (playing=!playing) startClarin();
                      else stopClarin(); break;
      /*case B10000011: msgMidi(0xB0,0x07,vol+=5); break;
