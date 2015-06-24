@@ -1,0 +1,3 @@
+[submodule "mocolufa"]
+	path = mocolufa
+	url = git@github.com:kuwatay/mocolufa.git
