@@ -5,12 +5,10 @@
  modify it under the terms of the GNU General Public License
  version 2 as published by the Free Software Foundation.
 */
-#include <Arduino.h>
-
 /**************************************************************/
 // CONFIGURATION
 #define SENSOR_PINS             {2,3,4,5,6,7,8,9}
-//#define BORDON_SENSOR           A4
+//#define BOTO_SENSOR           A4
 
 #define VS1053_MIDI_SYNTH
 #ifdef VS1053_MIDI_SYNTH
@@ -25,17 +23,16 @@
 #define SERIAL_MIDI              1
 
 #define TRIGGER_VAL              8 // sensor trigger value (<val is on, >= val is off)
-#ifdef BORDON_SENSOR
+#ifdef BOTO_SENSOR
   #define BORDON_TRIGGER_VAL    20
   #define BORDONETA_TRIGGER_VAL 35
   #define CLARIN_TRIGGER_VAL    55
 #endif
 
-#define SERIAL_DEBUG
+//#define SERIAL_DEBUG
 #ifdef SERIAL_DEBUG
   //#define VERBOSE_DEBUG0   //Digitation events
   //#define VERBOSE_DEBUG1   //Start/stop events
-  #undef SERIAL_MIDI
 #endif
 
 //#define STORE_CONFIG_ON_EEPROM
@@ -46,8 +43,10 @@
   #define EEPROM_ADDR_VOLUME 3
   #define CONFIG_RESET_START_POSITION B00000000
 #endif
+
 /**************************************************************/
 // AUTOMATIC DEFINES
+#include <Arduino.h>
 #ifdef VS1053_MIDI_SYNTH
   #include <SPI.h>
   #include "V1053MidiSynth.h"
@@ -64,6 +63,7 @@
 #ifdef SERIAL_DEBUG
   #include "GM1.h"
 #endif
+
 /**************************************************************/
 //INITIALIZATION AND GLOBAL VARS
 uint8_t pins[]=SENSOR_PINS;
@@ -74,6 +74,8 @@ int fsrValue;
 boolean bordon=true, bordoneta=true;
 boolean bordonPlaying=false, bordonetaPlaying=false;
 boolean playing=false;
+
+
 /**************************************************************/
 int msgMidi(int cmd, int note, int vel) {
 #ifdef SERIAL_MIDI
@@ -87,7 +89,7 @@ int msgMidi(int cmd, int note, int vel) {
 }
 
 void setInstrument(uint8_t channel, uint8_t instrument) {
-  msgMidi((0xC0 | channel),instrument,0);
+  msgMidi((0xC0 | channel),instrument,instrument);
 }
 
 void noteOn(uint8_t channel, uint8_t note) {
@@ -104,20 +106,6 @@ void playNote(uint8_t want, uint8_t have) {
     noteOn(0,want);
     previous=want;
   }
-}
-
-void setInstrument() {
-  stopPlayback();
-  setInstrument(0,instrument);
-  setInstrument(1,instrument);
-  setInstrument(2,instrument);
-  #ifdef SERIAL_DEBUG
-    char buffer[30];
-    Serial.print("Instrument set to ");
-    strcpy_P(buffer,(char*)pgm_read_word(&(instrumentNames[instrument])));
-    Serial.println(buffer);
-  #endif
-  startPlayback();
 }
 
 uint8_t readCapacitivePin(int pinToMeasure) {
@@ -311,6 +299,20 @@ void stopPlayback() {
   #endif
 }
 
+void setInstrument() {
+  stopPlayback();
+  setInstrument(0,instrument);
+  setInstrument(1,instrument);
+  setInstrument(2,instrument);
+  #ifdef SERIAL_DEBUG
+    char buffer[30];
+    Serial.print("Instrument set to ");
+    strcpy_P(buffer,(char*)pgm_read_word(&(instrumentNames[instrument])));
+    Serial.println(buffer);
+  #endif
+  startPlayback();
+}
+
 void setup() {
   #ifdef VS1053_MIDI_SYNTH
     synth.begin();
@@ -357,8 +359,8 @@ void setup() {
 }
 
 void loop() {
-    #ifdef BORDON_SENSOR
-      fsrValue=analogRead(BORDON_SENSOR);
+    #ifdef BOTO_SENSOR
+      fsrValue=analogRead(BOTO_SENSOR);
       if (fsrValue<BORDON_TRIGGER_VAL) {
         if (bordonPlaying) stopBordon();
       }
