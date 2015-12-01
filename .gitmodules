@@ -1,3 +1,3 @@
-[submodule "mocolufa"]
-	path = mocolufa
-	url = git@github.com:kuwatay/mocolufa.git
+[submodule "firmware"]
+	path = firmware
+	url = git@github.com:danielmartinez/eClarin-firmware.git
